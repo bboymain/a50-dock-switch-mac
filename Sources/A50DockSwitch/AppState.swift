@@ -15,6 +15,13 @@ enum DockState: String {
     case accConflict = "Astro Command Center is running"
 }
 
+/// One line in the dashboard's event history, mirroring upstream's log panel.
+struct HistoryEntry: Identifiable {
+    let id = UUID()
+    let date: Date
+    let text: String
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var state: DockState = .error
@@ -26,6 +33,8 @@ final class AppState: ObservableObject {
     @Published var config: AppConfig = Config.shared.data
     @Published var accRunning: Bool = false
     @Published var loginItemEnabled: Bool = false
+    @Published var themeName: String = ThemeStore.current
+    @Published var history: [HistoryEntry] = []
 
     /// Shared HID client. Seizing the interface means only one client per
     /// process can exist — the dashboard reuses this one.
@@ -55,6 +64,12 @@ final class AppState: ObservableObject {
 
     func stop() { pollTimer?.invalidate(); pollTimer = nil }
 
+    /// Appends to the dashboard's event history (newest first, capped).
+    private func record(_ text: String) {
+        history.insert(HistoryEntry(date: Date(), text: text), at: 0)
+        if history.count > 60 { history.removeLast(history.count - 60) }
+    }
+
     func refreshDevices() {
         devices = AudioDevices.shared.listOutputDevices()
     }
@@ -76,6 +91,7 @@ final class AppState: ObservableObject {
             let rose = ACCDetector.poll(previous: &accRunning)
             if rose {
                 log.warning("ASTRO Command Center detected running — it will fight for the HID interface")
+                record("ASTRO Command Center detected")
                 notify("ASTRO Command Center is running — close it or dock switching won't work")
             }
         }
@@ -109,6 +125,7 @@ final class AppState: ObservableObject {
 
         if newState != state {
             log.info("state -> \(newState.rawValue, privacy: .public) (docked=\(headset.isDocked), on=\(headset.isOn))")
+            record("State → \(newState.rawValue)")
         }
 
         if let battery {
@@ -147,6 +164,7 @@ final class AppState: ObservableObject {
             } else if AudioDevices.shared.setDefaultOutput(uid: uid) {
                 applied = newState
                 log.info("switched default output -> \(name, privacy: .public)")
+                record("Switched output → \(name)")
                 notify(newState == .undocked ? "Headphones active" : (newState == .off ? "Speakers active (headset off)" : "Speakers active (docked)"))
                 _ = name
             } else {
@@ -172,7 +190,12 @@ final class AppState: ObservableObject {
     func togglePause() {
         Config.shared.update { $0.paused.toggle() }
         config = Config.shared.data
-        if Config.shared.data.paused { state = .paused }
+        if Config.shared.data.paused {
+            state = .paused
+            record("Automation paused")
+        } else {
+            record("Automation resumed")
+        }
     }
 
     func manualSwitch(uid: String) {
@@ -180,6 +203,7 @@ final class AppState: ObservableObject {
         applied = pending
         defaultDeviceName = AudioDevices.shared.defaultOutputName() ?? ""
         if let name = devices.first(where: { $0.uid == uid })?.name {
+            record("Manual switch → \(name)")
             notify("Manual: " + name)
         }
     }
@@ -208,6 +232,26 @@ final class AppState: ObservableObject {
     func setLoginItem(_ enabled: Bool) {
         LoginItem.setEnabled(enabled)
         loginItemEnabled = LoginItem.isEnabled
+    }
+
+    func setTheme(_ id: String) {
+        guard id != themeName else { return }
+        ThemeStore.current = id
+        themeName = id
+    }
+
+    func setPollInterval(_ seconds: Double) {
+        let clamped = max(0, min(30, seconds))
+        guard clamped != config.interval else { return }
+        Config.shared.update { $0.interval = clamped }
+        config = Config.shared.data
+    }
+
+    func setDebounce(_ reads: Int) {
+        let clamped = max(1, min(10, reads))
+        guard clamped != config.debounce else { return }
+        Config.shared.update { $0.debounce = clamped }
+        config = Config.shared.data
     }
 
     // MARK: - Helpers

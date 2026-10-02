@@ -18,7 +18,7 @@ struct A50DockSwitchApp: App {
         Window("A50 Dashboard", id: "dashboard") {
             DashboardView(state: state)
         }
-        .defaultSize(width: 440, height: 660)
+        .defaultSize(width: 1080, height: 790)
     }
 
     private var iconName: String {

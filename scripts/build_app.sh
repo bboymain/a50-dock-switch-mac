@@ -3,12 +3,32 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "Building..."
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift build -c release
+DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+export DEVELOPER_DIR
+
+if xcrun --sdk macosx --show-sdk-path >/dev/null 2>&1; then
+    DEVELOPER_DIR="$DEVELOPER_DIR" swift build -c release
+else
+    # Xcode was replaced (27.0) without its licence being accepted, and until it
+    # is `xcrun` refuses to resolve the SDK — which also breaks `swift build`.
+    # Drive SwiftPM directly with an explicit SDKROOT so builds still work.
+    # `sudo xcodebuild -license accept` makes this branch unnecessary.
+    echo "Xcode licence not accepted — building with an explicit SDKROOT."
+    TC="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+    SDKROOT="$DEVELOPER_DIR/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" \
+        SWIFT_EXEC="$TC/swiftc" \
+        "$TC/swift-build" -c release
+fi
 
 APP="A50DockSwitch.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp ".build/release/A50DockSwitch" "$APP/Contents/MacOS/A50DockSwitch"
+
+# Bundle resources (the headset art is read via Bundle.main at runtime).
+if [ -d Resources ]; then
+    cp -R Resources/. "$APP/Contents/Resources/"
+fi
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

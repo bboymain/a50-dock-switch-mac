@@ -14,6 +14,10 @@ struct MenuBarContent: View {
         Divider()
 
         Button("Headset Dashboard…") {
+            // An LSUIElement (accessory) app can't become frontmost, so its
+            // window never repaints reliably and never takes keyboard focus.
+            // Promote to a regular app for as long as the dashboard is open.
+            NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
             openWindow(id: "dashboard")
         }
