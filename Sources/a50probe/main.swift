@@ -86,9 +86,12 @@ if args.contains("--settings") {
         print("sidetone      : \(s.sidetoneActive) (saved \(s.sidetoneSaved))")
         print("mic level     : \(s.micActive) (saved \(s.micSaved))")
         print("eq preset     : \(s.eqPreset) — \(s.eqNames[min(s.eqPreset - 1, s.eqNames.count - 1)])")
-        print("eq gains      : \(s.eqGains)")
-        print("noise gate    : \(s.noiseGate) (0=Streaming 1=Night 2=Home 3=Tournament)")
-        print("game:voice    : \(s.balance)")
+        print("eq gains      : \(s.eqGains) (saved \(s.eqSavedGains))")
+        print("eq freqs (Hz) : \(s.eqFreqs)")
+        print("noise gate    : \(s.noiseGate) (saved \(s.noiseGateSaved)) (0=Streaming 1=Night 2=Home 3=Tournament)")
+        print("game:voice    : \(s.balance)  (GAME \(s.gamePercent)% : VOICE \(100 - s.gamePercent)%)")
+        print("default bal.  : \(s.defaultBalance) (saved \(s.defaultBalanceSaved))")
+        print("unsaved edits : \(s.hasUnsavedChanges)")
     } catch {
         print("FAILED: \(error)")
         exit(1)
@@ -139,13 +142,27 @@ if args.contains("--list") {
 }
 
 if let cmdIndex = args.firstIndex(of: "--cmd"), args.index(after: cmdIndex) < args.endIndex {
+    // Trailing args that parse as bytes are the payload: `--cmd 0x70 01 02`.
+    func byteValue(_ s: String) -> UInt8? {
+        let trimmed = s.hasPrefix("0x") || s.hasPrefix("0X") ? String(s.dropFirst(2)) : s
+        guard !trimmed.isEmpty, trimmed.allSatisfy({ $0.isHexDigit }),
+              let v = UInt32(trimmed, radix: 16), v <= 0xFF else { return nil }
+        return UInt8(v)
+    }
     let cmdString = args[args.index(after: cmdIndex)]
     let value = UInt8(cmdString.hasPrefix("0x") ? strtoul(cmdString, nil, 16) : strtoul(cmdString, nil, 10))
+    var payload: [UInt8] = []
+    var i = args.index(after: args.index(after: cmdIndex))
+    while i < args.endIndex {
+        if let b = byteValue(args[i]) { payload.append(b) } else { break }
+        i = args.index(after: i)
+    }
     let client = AstroHID()
-    print("Raw query 0x\(String(value, radix: 16, uppercase: true)) ...")
+    print("Raw query 0x\(String(value, radix: 16, uppercase: true))"
+          + (payload.isEmpty ? "" : " payload [\(hex(payload))]") + " ...")
     do {
-        let payload = try client.rawQuery(value)
-        print("payload (\(payload.count) bytes): \(hex(payload))")
+        let reply = try client.rawQuery(value, payload: payload.isEmpty ? nil : payload)
+        print("payload (\(reply.count) bytes): \(hex(reply))")
     } catch {
         print("FAILED: \(error)")
         exit(1)

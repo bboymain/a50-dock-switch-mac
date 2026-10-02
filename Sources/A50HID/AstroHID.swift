@@ -294,26 +294,32 @@ public final class AstroHID {
         }
         guard setResult == kIOReturnSuccess else { throw HIDError.openFailed(setResult) }
 
-        // Pump this thread's run loop until the input-report callback fires.
+        // Pump this thread's run loop until a *parseable* input report arrives.
+        // The base station can hand back a malformed report while it is busy —
+        // observed immediately after SAVE_VALUES acknowledges — and dropping
+        // that one frame beats failing the whole exchange.
         let deadline = Date().addingTimeInterval(timeout)
-        var reply: [UInt8]?
+        var lastSeen = before
+        var sawJunk = false
         while Date() < deadline {
             CFRunLoopRunInMode(CFRunLoopMode.defaultMode, 0.02, true)
             let (report, sequence) = sink.snapshot()
-            if sequence > before {
-                reply = report
-                break
+            guard sequence > lastSeen else { continue }
+            lastSeen = sequence
+            do {
+                return try parseResponse(report)
+            } catch HIDError.badFrame {
+                sawJunk = true   // stray frame: keep waiting for the real reply
             }
         }
-        guard let report = reply else { throw HIDError.noResponse(command) }
-        return try parseResponse(report)
+        throw sawJunk ? HIDError.badFrame : HIDError.noResponse(command)
     }
 
-    private func queryLocked(_ command: UInt8, payload: [UInt8]?, retries: Int) throws -> [UInt8] {
+    private func queryLocked(_ command: UInt8, payload: [UInt8]?, retries: Int, timeout: Double) throws -> [UInt8] {
         var lastError: Error = HIDError.noResponse(command)
         for _ in 0..<retries {
             do {
-                return try exchangeLocked(command, payload: payload, timeout: 1.0)
+                return try exchangeLocked(command, payload: payload, timeout: timeout)
             } catch {
                 lastError = error
                 if case HIDError.deviceNotFound = error { closeLocked() }
@@ -328,8 +334,11 @@ public final class AstroHID {
 
     /// Sends an arbitrary command and returns the raw payload — used by a50probe
     /// for protocol diagnostics.
-    public func rawQuery(_ command: UInt8, payload: [UInt8]? = nil, retries: Int = 4) throws -> [UInt8] {
-        try sync { try self.queryLocked(command, payload: payload, retries: retries) }
+    ///
+    /// `timeout` is per attempt. Most commands answer in well under 100ms, but
+    /// `SAVE_VALUES` (0x61) takes ~2s before it replies.
+    public func rawQuery(_ command: UInt8, payload: [UInt8]? = nil, retries: Int = 4, timeout: Double = 1.0) throws -> [UInt8] {
+        try sync { try self.queryLocked(command, payload: payload, retries: retries, timeout: timeout) }
     }
 
     /// Which usage/usagePage the client currently talks to (nil when not open).
