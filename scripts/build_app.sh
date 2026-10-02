@@ -30,3 +30,20 @@ cat > "$APP/Contents/Info.plist" <<EOF
 EOF
 
 echo "Built $APP"
+
+# Keep an installed copy so the app shows up in Spotlight/Launchpad. The bundle
+# in the repo is rewritten from scratch each build, so without this the copy in
+# /Applications would silently go stale.
+DEST="/Applications/A50DockSwitch.app"
+if [ -w "$(dirname "$DEST")" ]; then
+    if pgrep -f "$DEST" >/dev/null 2>&1; then
+        echo "Quitting running copy to replace it..."
+        pkill -f "$DEST"
+        sleep 1
+    fi
+    rm -rf "$DEST"
+    ditto "$APP" "$DEST"
+    echo "Installed $DEST"
+else
+    echo "Skipped install ($(dirname "$DEST") not writable)"
+fi
