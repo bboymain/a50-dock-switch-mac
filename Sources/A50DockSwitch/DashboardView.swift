@@ -825,6 +825,15 @@ private struct AboutContent: View {
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(theme.accent)
                     }
+                    Link(destination: URL(string: "https://x.com/mainlek")!) {
+                        HStack(spacing: 5) {
+                            XLogo()
+                                .frame(width: 12, height: 12)
+                            Text("@mainlek")
+                        }
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.accent)
+                    }
                     Text("A50 DOCK SWITCH · MACOS")
                         .font(.system(size: 10, weight: .bold))
                         .kerning(1)
@@ -833,5 +842,39 @@ private struct AboutContent: View {
             }
             Spacer(minLength: 0)
         }
+    }
+}
+
+/// The X mark, taken from the path in the upstream `dashboard/index.html`
+/// (24x24 viewBox). It uses only straight segments, so it maps onto a Path
+/// exactly rather than needing an SVG parser.
+struct XLogo: Shape {
+    func path(in rect: CGRect) -> Path {
+        let s = min(rect.width, rect.height) / 24
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * s, y: rect.minY + y * s)
+        }
+
+        var p = Path()
+        p.move(to: pt(18.244, 2.25))
+        p.addLine(to: pt(21.552, 2.25))
+        p.addLine(to: pt(14.325, 10.51))
+        p.addLine(to: pt(22.827, 21.75))
+        p.addLine(to: pt(16.170, 21.75))
+        p.addLine(to: pt(10.956, 14.933))
+        p.addLine(to: pt(4.990, 21.75))
+        p.addLine(to: pt(1.680, 21.75))
+        p.addLine(to: pt(9.410, 12.915))
+        p.addLine(to: pt(1.254, 2.25))
+        p.addLine(to: pt(8.080, 2.25))
+        p.addLine(to: pt(12.793, 8.481))
+        p.closeSubpath()
+
+        p.move(to: pt(17.083, 19.77))
+        p.addLine(to: pt(18.916, 19.77))
+        p.addLine(to: pt(7.084, 4.126))
+        p.addLine(to: pt(5.117, 4.126))
+        p.closeSubpath()
+        return p
     }
 }

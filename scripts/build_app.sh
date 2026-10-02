@@ -41,6 +41,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>CFBundleVersion</key><string>1</string>
     <key>CFBundleShortVersionString</key><string>1.0</string>
     <key>CFBundleExecutable</key><string>A50DockSwitch</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
@@ -55,7 +56,13 @@ echo "Built $APP"
 # in the repo is rewritten from scratch each build, so without this the copy in
 # /Applications would silently go stale.
 DEST="/Applications/A50DockSwitch.app"
-if [ -w "$(dirname "$DEST")" ]; then
+if [ -n "${CI:-}" ]; then
+    # On CI there is nothing to install into, and the bundle is still checked.
+    echo "CI build — skipping the /Applications install"
+    test -f "$APP/Contents/Resources/AppIcon.icns" || { echo "missing icon"; exit 1; }
+    test -f "$APP/Contents/Resources/logo.png" || { echo "missing logo"; exit 1; }
+    echo "bundle resources present"
+elif [ -w "$(dirname "$DEST")" ]; then
     if pgrep -f "$DEST" >/dev/null 2>&1; then
         echo "Quitting running copy to replace it..."
         pkill -f "$DEST"
