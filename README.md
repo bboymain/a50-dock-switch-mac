@@ -1,6 +1,6 @@
 # A50 Dock Switch — macOS
 
-[![build](https://github.com/vallhaofficial/a50-dock-switch-mac/actions/workflows/build.yml/badge.svg)](https://github.com/vallhaofficial/a50-dock-switch-mac/actions/workflows/build.yml)
+[![build](https://github.com/bboymain/a50-dock-switch-mac/actions/workflows/build.yml/badge.svg)](https://github.com/bboymain/a50-dock-switch-mac/actions/workflows/build.yml)
 
 Native Swift port of [a50-dock-switch](https://github.com/bboymain/a50-dock-switch): a menu bar app that watches your Astro A50 Gen 4 dock state over USB HID and switches your default audio output for you. **Docked → speakers. Undocked → headphones.**
 
