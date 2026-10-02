@@ -6,6 +6,8 @@ Native Swift port of [a50-dock-switch](https://github.com/bboymain/a50-dock-swit
 
 Runs natively on **macOS 14+** — no Python, no WebView wrapper, no Electron. The Astro Command Center-style dashboard is a native SwiftUI port of the upstream web UI.
 
+> The screenshot below is the **Windows** build — the macOS dashboard is a like-for-like port of this design. A native macOS capture goes here as soon as one is taken.
+
 ![Dashboard](docs/screenshot.png)
 
 ## Features
